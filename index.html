@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EV vs Gasoline Break-Even Simulator</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN for responsive comparison plotting -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- FontAwesome Icons for clean automotive and financial iconography -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+            },
+            gas: '#f97316',
+            ev: '#10b981'
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: #e2e8f0;
+      height: 6px;
+      border-radius: 9999px;
+      outline: none;
+      transition: background 0.2s;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #2563eb;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      transition: transform 0.15s ease;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #2563eb;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
+
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-emerald-500 flex items-center justify-center text-white shadow-md">
+          <i class="fa-solid fa-bolt-lightning text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-slate-900 leading-tight">Car TCO & Break-Even Simulator</h1>
+          <p class="text-xs text-slate-500">Gasoline vs. Electric Vehicle Economics</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2">
+        <button id="resetDefaultsBtn" class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-100 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-rotate-left"></i> Reset Defaults
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    
+    <!-- Top Highlight Banner: Break-Even Headline -->
+    <section class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
+      <div class="absolute -right-10 -bottom-10 opacity-10 text-9xl text-white pointer-events-none">
+        <i class="fa-solid fa-chart-line"></i>
+      </div>
+      <div class="relative z-10 grid grid-cols-1 md:grid-cols-4 gap-6 items-center">
+        <div class="md:col-span-2 space-y-1">
+          <span class="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2.5 py-1 rounded-full">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Break-Even Analysis
+          </span>
+          <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight" id="heroBreakEvenText">9.7 Years</h2>
+          <p class="text-slate-300 text-sm" id="heroBreakEvenSub">EV upfront difference recovers in 117 months through fuel savings.</p>
+        </div>
+        <div class="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10">
+          <p class="text-xs text-slate-300 font-medium">Net Initial Outlay</p>
+          <p class="text-2xl font-bold text-white mt-1" id="heroNetOutlay">€7,000</p>
+          <p class="text-xs text-slate-300 mt-1" id="heroOutlayFormula">EV (€22k) - Old Car (€15k)</p>
+        </div>
+        <div class="bg-emerald-500/20 backdrop-blur-md rounded-xl p-4 border border-emerald-400/20">
+          <p class="text-xs text-emerald-200 font-medium">Annual Fuel Savings</p>
+          <p class="text-2xl font-bold text-emerald-300 mt-1" id="heroAnnualSavings">€704.08 / yr</p>
+          <p class="text-xs text-emerald-200/80 mt-1" id="heroSavingsPercent">80.6% cost reduction</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      
+      <!-- Input Column (5 cols) -->
+      <div class="lg:col-span-5 space-y-6">
+        <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-6">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-sliders text-blue-600"></i> Simulation Parameters
+            </h3>
+            <span class="text-xs text-slate-400">Reactive updates</span>
+          </div>
+
+          <!-- Section 1: Driving Distance -->
+          <div class="space-y-3">
+            <div class="flex justify-between items-center text-sm font-semibold text-slate-700">
+              <label for="weeklyKmInput" class="flex items-center gap-1.5">
+                <i class="fa-solid fa-route text-indigo-500"></i> Weekly Distance
+              </label>
+              <div class="flex items-center gap-1">
+                <span class="text-indigo-600 font-bold" id="weeklyKmDisplay">150</span>
+                <span class="text-xs text-slate-500">km/wk</span>
+              </div>
+            </div>
+            <input type="range" id="weeklyKmInput" min="20" max="600" step="5" value="150" class="accent-indigo-600" />
+            <div class="flex justify-between text-xs text-slate-400 font-medium">
+              <span>20 km/wk</span>
+              <span id="annualKmDisplay" class="text-indigo-600 font-semibold">7,800 km/year</span>
+              <span>600 km/wk</span>
+            </div>
+          </div>
+
+          <div class="border-t border-slate-100 pt-5 space-y-5">
+            <!-- Section 2: Gasoline Car Specifications -->
+            <div class="space-y-3">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-orange-600 flex items-center gap-1.5">
+                <i class="fa-solid fa-gas-pump"></i> Current Gasoline Car
+              </h4>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Consumption (L/100km)</label>
+                  <div class="relative">
+                    <input type="number" id="gasConsumptionInput" step="0.1" min="1" max="25" value="5.6"
+                      class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm font-semibold focus:ring-2 focus:ring-orange-400 focus:outline-none" />
+                    <span class="absolute right-3 top-2 text-xs text-slate-400">L</span>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Gas Price (€/L)</label>
+                  <div class="relative">
+                    <input type="number" id="gasPriceInput" step="0.05" min="0.5" max="4.0" value="2.00"
+                      class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm font-semibold focus:ring-2 focus:ring-orange-400 focus:outline-none" />
+                    <span class="absolute right-3 top-2 text-xs text-slate-400">€</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section 3: EV Specifications -->
+            <div class="space-y-3">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-600 flex items-center gap-1.5">
+                <i class="fa-solid fa-car-side"></i> New Electric Vehicle
+              </h4>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Efficiency (kWh/100km)</label>
+                  <div class="relative">
+                    <input type="number" id="evEfficiencyInput" step="0.5" min="8" max="35" value="14.0"
+                      class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm font-semibold focus:ring-2 focus:ring-emerald-400 focus:outline-none" />
+                    <span class="absolute right-3 top-2 text-xs text-slate-400">kWh</span>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Electricity Price (€/kWh)</label>
+                  <div class="relative">
+                    <input type="number" id="evPriceInput" step="0.01" min="0.04" max="0.90" value="0.14"
+                      class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm font-semibold focus:ring-2 focus:ring-emerald-400 focus:outline-none" />
+                    <span class="absolute right-3 top-2 text-xs text-slate-400">€</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Charging Losses Slider -->
+              <div class="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1.5">
+                <div class="flex justify-between text-xs text-slate-600">
+                  <span class="font-medium flex items-center gap-1">
+                    <i class="fa-solid fa-plug-circle-bolt text-emerald-500"></i> AC Charging Loss
+                  </span>
+                  <span id="chargeLossDisplay" class="font-bold text-slate-800">10%</span>
+                </div>
+                <input type="range" id="chargeLossInput" min="0" max="25" step="1" value="10" class="accent-emerald-600" />
+                <p class="text-[11px] text-slate-400">Accounts for onboard AC/DC inverter & grid dissipation.</p>
+              </div>
+            </div>
+
+            <!-- Section 4: Purchase & Capital Outlay -->
+            <div class="space-y-3">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-blue-600 flex items-center gap-1.5">
+                <i class="fa-solid fa-coins"></i> Transaction & Outlay
+              </h4>
+              
+              <!-- EV Price Slider & Input -->
+              <div class="space-y-1.5">
+                <div class="flex justify-between items-center text-xs font-medium text-slate-600">
+                  <span>EV Purchase Price</span>
+                  <div class="relative w-28">
+                    <input type="number" id="evCostInput" min="10000" max="60000" step="500" value="22000"
+                      class="w-full text-right bg-slate-50 border border-slate-200 rounded-md py-1 px-2 text-xs font-bold focus:outline-blue-500" />
+                    <span class="absolute left-2 top-1 text-slate-400 text-xs">€</span>
+                  </div>
+                </div>
+                <input type="range" id="evCostSlider" min="15000" max="45000" step="500" value="22000" class="accent-blue-600" />
+              </div>
+
+              <div class="grid grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Old Car Resale Value</label>
+                  <div class="relative">
+                    <input type="number" id="resaleValueInput" step="250" min="0" max="40000" value="15000"
+                      class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm font-semibold focus:ring-2 focus:ring-blue-400 focus:outline-none" />
+                    <span class="absolute right-3 top-2 text-xs text-slate-400">€</span>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Wallbox / Installation</label>
+                  <div class="relative">
+                    <input type="number" id="chargerCostInput" step="50" min="0" max="4000" value="0"
+                      class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm font-semibold focus:ring-2 focus:ring-blue-400 focus:outline-none" />
+                    <span class="absolute right-3 top-2 text-xs text-slate-400">€</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="lg:col-span-7 space-y-6">
+        
+        <!-- Live Energy Running Cost Breakdown Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Gas Running Card -->
+          <div class="bg-white rounded-2xl p-5 border border-orange-100 shadow-sm relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-24 h-24 -mr-6 -mt-6 bg-orange-50 rounded-full pointer-events-none"></div>
+            <div class="flex items-center justify-between relative z-10">
+              <span class="text-xs font-bold uppercase tracking-wider text-orange-600 flex items-center gap-1.5">
+                <i class="fa-solid fa-gas-pump"></i> Gas Car Running
+              </span>
+              <span class="text-xs font-medium text-slate-400" id="gasPerKmText">€0.112 / km</span>
+            </div>
+            <div class="mt-3 relative z-10">
+              <div class="text-2xl font-bold text-slate-900" id="gasAnnualCost">€873.60 <span class="text-xs font-normal text-slate-500">/ yr</span></div>
+              <p class="text-xs text-slate-500 mt-0.5" id="gasMonthlyCost">€72.80 / month</p>
+            </div>
+            <div class="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500 flex justify-between">
+              <span>Fuel consumed:</span>
+              <span class="font-semibold text-slate-700" id="gasLitersYear">436.8 L / yr</span>
+            </div>
+          </div>
+
+          <!-- EV Running Card -->
+          <div class="bg-white rounded-2xl p-5 border border-emerald-100 shadow-sm relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-24 h-24 -mr-6 -mt-6 bg-emerald-50 rounded-full pointer-events-none"></div>
+            <div class="flex items-center justify-between relative z-10">
+              <span class="text-xs font-bold uppercase tracking-wider text-emerald-600 flex items-center gap-1.5">
+                <i class="fa-solid fa-bolt"></i> EV Running
+              </span>
+              <span class="text-xs font-medium text-slate-400" id="evPerKmText">€0.022 / km</span>
+            </div>
+            <div class="mt-3 relative z-10">
+              <div class="text-2xl font-bold text-slate-900" id="evAnnualCost">€169.52 <span class="text-xs font-normal text-slate-500">/ yr</span></div>
+              <p class="text-xs text-slate-500 mt-0.5" id="evMonthlyCost">€14.13 / month</p>
+            </div>
+            <div class="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500 flex justify-between">
+              <span>Grid draw (incl loss):</span>
+              <span class="font-semibold text-slate-700" id="evKwhYear">1,213.3 kWh / yr</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 10-Year Cumulative Cost Projection Chart -->
+        <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-chart-area text-blue-600"></i> Cumulative Total Cost (10 Years)
+              </h3>
+              <p class="text-xs text-slate-500">Starting outlay + cumulative annual running expense</p>
+            </div>
+            <div class="flex items-center gap-3 text-xs font-medium">
+              <span class="flex items-center gap-1.5 text-orange-600">
+                <span class="w-3 h-3 rounded-full bg-orange-500"></span> Keep Gas Car
+              </span>
+              <span class="flex items-center gap-1.5 text-emerald-600">
+                <span class="w-3 h-3 rounded-full bg-emerald-500"></span> Buy Electric Vehicle
+              </span>
+            </div>
+          </div>
+
+          <div class="relative w-full h-72 sm:h-80">
+            <canvas id="costComparisonChart"></canvas>
+          </div>
+          
+          <div class="text-xs text-slate-400 text-center italic" id="crossoverNote">
+            * The crossover point marks where total EV ownership becomes cheaper than retaining your existing vehicle.
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+        <div>
+          <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+            <i class="fa-solid fa-table-list text-indigo-600"></i> EV Purchase Price Sensitivity Ladder
+          </h3>
+          <p class="text-xs text-slate-500">Break-even timelines across price intervals based on your current €<span id="ladderSaleRef">15,000</span> trade-in value</p>
+        </div>
+        <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1 text-xs font-semibold">
+          <button id="step1kBtn" class="px-3 py-1 rounded-md bg-white text-slate-800 shadow-xs">€1,000 Steps</button>
+          <button id="step2kBtn" class="px-3 py-1 rounded-md text-slate-500 hover:text-slate-800">€2,000 Steps</button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto custom-scrollbar">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-50 text-xs text-slate-500 font-semibold border-b border-slate-200">
+            <tr>
+              <th class="py-3.5 px-6">EV Purchase Price</th>
+              <th class="py-3.5 px-6">Net Outlay</th>
+              <th class="py-3.5 px-6">Break-Even (Years)</th>
+              <th class="py-3.5 px-6">Break-Even (Months)</th>
+              <th class="py-3.5 px-6">Feasibility Evaluation</th>
+            </tr>
+          </thead>
+          <tbody id="priceLadderBody" class="divide-y divide-slate-100">
+            <!-- Dynamic rows will be inserted here -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-600">
+      <div class="p-4 rounded-xl bg-slate-100/80 border border-slate-200 space-y-1">
+        <p class="font-bold text-slate-800 flex items-center gap-1.5">
+          <i class="fa-solid fa-shield-halved text-blue-500"></i> Maintenance & Road Tax
+        </p>
+        <p class="text-slate-500">In many European jurisdictions, EVs benefit from zero road tax (such as Portuguese IUC) and lower brake/oil service costs (~€150-€300/yr extra savings).</p>
+      </div>
+      <div class="p-4 rounded-xl bg-slate-100/80 border border-slate-200 space-y-1">
+        <p class="font-bold text-slate-800 flex items-center gap-1.5">
+          <i class="fa-solid fa-gauge-high text-orange-500"></i> Real-World Consumption
+        </p>
+        <p class="text-slate-500">Winter temperature conditions and motorway driving can raise EV consumption up to 16–18 kWh/100km, while heavy urban stop-and-go favors EV efficiency.</p>
+      </div>
+      <div class="p-4 rounded-xl bg-slate-100/80 border border-slate-200 space-y-1">
+        <p class="font-bold text-slate-800 flex items-center gap-1.5">
+          <i class="fa-solid fa-solar-panel text-emerald-500"></i> Solar PV Synergy
+        </p>
+        <p class="text-slate-500">Charging from home rooftop photovoltaic generation can drop electricity costs down to €0.04 - €0.06/kWh, shortening the break-even horizon by over 40%.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // State store with original conversation defaults
+    const state = {
+      weeklyKm: 150,
+      gasConsumption: 5.6,
+      gasPrice: 2.00,
+      evEfficiency: 14.0,
+      evElectricityPrice: 0.14,
+      chargingLossPct: 10,
+      evPurchasePrice: 22000,
+      oldCarResale: 15000,
+      chargerInstallation: 0,
+      ladderStep: 1000
+    };
+
+    let chartInstance = null;
+
+    // DOM Element handles
+    const weeklyKmInput = document.getElementById('weeklyKmInput');
+    const weeklyKmDisplay = document.getElementById('weeklyKmDisplay');
+    const annualKmDisplay = document.getElementById('annualKmDisplay');
+    
+    const gasConsumptionInput = document.getElementById('gasConsumptionInput');
+    const gasPriceInput = document.getElementById('gasPriceInput');
+    
+    const evEfficiencyInput = document.getElementById('evEfficiencyInput');
+    const evPriceInput = document.getElementById('evPriceInput');
+    const chargeLossInput = document.getElementById('chargeLossInput');
+    const chargeLossDisplay = document.getElementById('chargeLossDisplay');
+
+    const evCostSlider = document.getElementById('evCostSlider');
+    const evCostInput = document.getElementById('evCostInput');
+    const resaleValueInput = document.getElementById('resaleValueInput');
+    const chargerCostInput = document.getElementById('chargerCostInput');
+
+    const heroBreakEvenText = document.getElementById('heroBreakEvenText');
+    const heroBreakEvenSub = document.getElementById('heroBreakEvenSub');
+    const heroNetOutlay = document.getElementById('heroNetOutlay');
+    const heroOutlayFormula = document.getElementById('heroOutlayFormula');
+    const heroAnnualSavings = document.getElementById('heroAnnualSavings');
+    const heroSavingsPercent = document.getElementById('heroSavingsPercent');
+
+    const gasPerKmText = document.getElementById('gasPerKmText');
+    const gasAnnualCost = document.getElementById('gasAnnualCost');
+    const gasMonthlyCost = document.getElementById('gasMonthlyCost');
+    const gasLitersYear = document.getElementById('gasLitersYear');
+
+    const evPerKmText = document.getElementById('evPerKmText');
+    const evAnnualCost = document.getElementById('evAnnualCost');
+    const evMonthlyCost = document.getElementById('evMonthlyCost');
+    const evKwhYear = document.getElementById('evKwhYear');
+    const crossoverNote = document.getElementById('crossoverNote');
+
+    const priceLadderBody = document.getElementById('priceLadderBody');
+    const ladderSaleRef = document.getElementById('ladderSaleRef');
+    const step1kBtn = document.getElementById('step1kBtn');
+    const step2kBtn = document.getElementById('step2kBtn');
+    const resetDefaultsBtn = document.getElementById('resetDefaultsBtn');
+
+    function formatCurrency(val) {
+      return new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(val);
+    }
+
+    function calculateTCO() {
+      const annualDistance = state.weeklyKm * 52;
+      
+      // Gasoline calculations
+      const litersPerKm = state.gasConsumption / 100;
+      const gasCostPerKm = litersPerKm * state.gasPrice;
+      const annualGasLiters = annualDistance * litersPerKm;
+      const annualGasCost = annualDistance * gasCostPerKm;
+      const monthlyGasCost = annualGasCost / 12;
+
+      // EV calculations (including AC charging losses)
+      const lossFactor = 1 + (state.chargingLossPct / 100);
+      const effectiveKwhPerKm = (state.evEfficiency / 100) * lossFactor;
+      const evCostPerKm = effectiveKwhPerKm * state.evElectricityPrice;
+      const annualEvKwh = annualDistance * effectiveKwhPerKm;
+      const annualEvCost = annualDistance * evCostPerKm;
+      const monthlyEvCost = annualEvCost / 12;
+
+      // Net savings
+      const annualSavings = annualGasCost - annualEvCost;
+      const monthlySavings = annualSavings / 12;
+      const savingsPercent = annualGasCost > 0 ? (annualSavings / annualGasCost) * 100 : 0;
+
+      // Net upfront cost
+      const netOutlay = (state.evPurchasePrice + state.chargerInstallation) - state.oldCarResale;
+
+      // Break-even
+      let breakEvenYears = null;
+      let breakEvenMonths = null;
+      let breakEvenStatus = 'normal';
+
+      if (netOutlay <= 0) {
+        breakEvenStatus = 'immediate';
+        breakEvenYears = 0;
+        breakEvenMonths = 0;
+      } else if (annualSavings <= 0) {
+        breakEvenStatus = 'never';
+        breakEvenYears = Infinity;
+        breakEvenMonths = Infinity;
+      } else {
+        breakEvenYears = netOutlay / annualSavings;
+        breakEvenMonths = Math.round(breakEvenYears * 12);
+      }
+
+      return {
+        annualDistance,
+        gasCostPerKm,
+        annualGasLiters,
+        annualGasCost,
+        monthlyGasCost,
+        evCostPerKm,
+        annualEvKwh,
+        annualEvCost,
+        monthlyEvCost,
+        annualSavings,
+        monthlySavings,
+        savingsPercent,
+        netOutlay,
+        breakEvenYears,
+        breakEvenMonths,
+        breakEvenStatus
+      };
+    }
+
+    function updateUI() {
+      const metrics = calculateTCO();
+
+      // Synchronize slider and number input
+      weeklyKmDisplay.textContent = state.weeklyKm;
+      annualKmDisplay.textContent = `${(state.weeklyKm * 52).toLocaleString()} km/year`;
+      chargeLossDisplay.textContent = `${state.chargingLossPct}%`;
+      ladderSaleRef.textContent = state.oldCarResale.toLocaleString();
+
+      // Top Highlights
+      if (metrics.breakEvenStatus === 'immediate') {
+        heroBreakEvenText.textContent = "Immediate Payoff";
+        heroBreakEvenSub.textContent = "The EV costs less than or equal to your old car sale price!";
+      } else if (metrics.breakEvenStatus === 'never') {
+        heroBreakEvenText.textContent = "No Break-Even";
+        heroBreakEvenSub.textContent = "EV running costs exceed gas running costs under these inputs.";
+      } else {
+        heroBreakEvenText.textContent = `${metrics.breakEvenYears.toFixed(1)} Years`;
+        heroBreakEvenSub.textContent = `EV upfront difference recovers in ~${metrics.breakEvenMonths} months through fuel savings.`;
+      }
+
+      heroNetOutlay.textContent = formatCurrency(metrics.netOutlay);
+      let formulaText = `EV (${formatCurrency(state.evPurchasePrice)}) - Old Car (${formatCurrency(state.oldCarResale)})`;
+      if (state.chargerInstallation > 0) formulaText += ` + Charger (${formatCurrency(state.chargerInstallation)})`;
+      heroOutlayFormula.textContent = formulaText;
+
+      heroAnnualSavings.textContent = `${formatCurrency(metrics.annualSavings)} / yr`;
+      heroSavingsPercent.textContent = `${metrics.savingsPercent.toFixed(1)}% running cost reduction`;
+
+      // Card Metrics
+      gasPerKmText.textContent = `€${metrics.gasCostPerKm.toFixed(3)} / km`;
+      gasAnnualCost.innerHTML = `${formatCurrency(metrics.annualGasCost)} <span class="text-xs font-normal text-slate-500">/ yr</span>`;
+      gasMonthlyCost.textContent = `${formatCurrency(metrics.monthlyGasCost)} / month`;
+      gasLitersYear.textContent = `${metrics.annualGasLiters.toFixed(1)} L / yr`;
+
+      evPerKmText.textContent = `€${metrics.evCostPerKm.toFixed(3)} / km`;
+      evAnnualCost.innerHTML = `${formatCurrency(metrics.annualEvCost)} <span class="text-xs font-normal text-slate-500">/ yr</span>`;
+      evMonthlyCost.textContent = `${formatCurrency(metrics.monthlyEvCost)} / month`;
+      evKwhYear.textContent = `${metrics.annualEvKwh.toFixed(1)} kWh / yr`;
+
+      // Update Table and Chart
+      renderPriceLadder(metrics.annualSavings);
+      updateChart(metrics);
+    }
+
+    function renderPriceLadder(annualSavings) {
+      priceLadderBody.innerHTML = '';
+      const startPrice = 18000;
+      const endPrice = 32000;
+      const step = state.ladderStep;
+
+      for (let price = startPrice; price <= endPrice; price += step) {
+        const netOutlay = (price + state.chargerInstallation) - state.oldCarResale;
+        let years = 0;
+        let months = 0;
+        let statusBadge = '';
+
+        if (netOutlay <= 0) {
+          years = 0;
+          months = 0;
+          statusBadge = '<span class="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">Immediate</span>';
+        } else if (annualSavings <= 0) {
+          statusBadge = '<span class="px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800">Never</span>';
+        } else {
+          years = netOutlay / annualSavings;
+          months = Math.round(years * 12);
+          if (years <= 5) {
+            statusBadge = '<span class="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">Fast Payback</span>';
+          } else if (years <= 10) {
+            statusBadge = '<span class="px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800">Balanced</span>';
+          } else {
+            statusBadge = '<span class="px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800">Long Horizon</span>';
+          }
+        }
+
+        const isCurrent = Math.abs(price - state.evPurchasePrice) < (step / 2);
+
+        const tr = document.createElement('tr');
+        tr.className = isCurrent 
+          ? 'bg-blue-50/80 font-semibold border-l-4 border-blue-600 transition-colors' 
+          : 'hover:bg-slate-50/80 transition-colors';
+
+        tr.innerHTML = `
+          <td class="py-3 px-6 text-slate-900 flex items-center gap-2">
+            ${formatCurrency(price)}
+            ${isCurrent ? '<span class="text-[10px] bg-blue-600 text-white font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide">Selected</span>' : ''}
+          </td>
+          <td class="py-3 px-6 font-medium ${netOutlay <= 0 ? 'text-emerald-600' : 'text-slate-700'}">${formatCurrency(netOutlay)}</td>
+          <td class="py-3 px-6 text-slate-800">${annualSavings <= 0 ? '—' : years.toFixed(1) + ' yrs'}</td>
+          <td class="py-3 px-6 text-slate-600">${annualSavings <= 0 ? '—' : months + ' mos'}</td>
+          <td class="py-3 px-6">${statusBadge}</td>
+        `;
+        priceLadderBody.appendChild(tr);
+      }
+    }
+
+    function initChart() {
+      const ctx = document.getElementById('costComparisonChart').getContext('2d');
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['Year 0', 'Year 1', 'Year 2', 'Year 3', 'Year 4', 'Year 5', 'Year 6', 'Year 7', 'Year 8', 'Year 9', 'Year 10'],
+          datasets: [
+            {
+              label: 'Keep Existing Gas Car',
+              borderColor: '#f97316',
+              backgroundColor: 'rgba(249, 115, 22, 0.08)',
+              data: [],
+              borderWidth: 2.5,
+              tension: 0.1,
+              fill: true,
+              pointRadius: 4,
+              pointHoverRadius: 6
+            },
+            {
+              label: 'Buy New EV',
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.08)',
+              data: [],
+              borderWidth: 2.5,
+              tension: 0.1,
+              fill: true,
+              pointRadius: 4,
+              pointHoverRadius: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return ` ${context.dataset.label}: ${formatCurrency(context.raw)}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: '#f1f5f9' },
+              ticks: { color: '#64748b', font: { size: 11 } }
+            },
+            y: {
+              grid: { color: '#f1f5f9' },
+              ticks: {
+                color: '#64748b',
+                font: { size: 11 },
+                callback: function(val) {
+                  return '€' + (val / 1000).toFixed(0) + 'k';
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function updateChart(metrics) {
+      if (!chartInstance) return;
+
+      const gasPoints = [];
+      const evPoints = [];
+
+      // Year 0: Keeping gas car starts at €0 incremental capital outlay.
+      // Buying the EV starts at netOutlay.
+      const startingEvOutlay = Math.max(0, metrics.netOutlay);
+
+      for (let y = 0; y <= 10; y++) {
+        gasPoints.push(y * metrics.annualGasCost);
+        evPoints.push(startingEvOutlay + (y * metrics.annualEvCost));
+      }
+
+      chartInstance.data.datasets[0].data = gasPoints;
+      chartInstance.data.datasets[1].data = evPoints;
+      chartInstance.update();
+
+      if (metrics.breakEvenStatus === 'normal' && metrics.breakEvenYears <= 10) {
+        crossoverNote.textContent = `★ Break-even crossover occurs at Year ${metrics.breakEvenYears.toFixed(1)} (~${metrics.breakEvenMonths} months). Beyond this point, the EV yields net total profit.`;
+        crossoverNote.className = "text-xs text-emerald-700 font-semibold text-center";
+      } else if (metrics.breakEvenStatus === 'immediate') {
+        crossoverNote.textContent = "★ EV cost is lower than trade-in value: immediate positive cashflow from Day 1.";
+        crossoverNote.className = "text-xs text-emerald-700 font-semibold text-center";
+      } else {
+        crossoverNote.textContent = "★ The break-even point is beyond 10 years at the current annual driving volume.";
+        crossoverNote.className = "text-xs text-slate-500 text-center italic";
+      }
+    }
+
+    function attachListeners() {
+      // Weekly Km
+      weeklyKmInput.addEventListener('input', (e) => {
+        state.weeklyKm = parseFloat(e.target.value) || 0;
+        updateUI();
+      });
+
+      // Gas inputs
+      gasConsumptionInput.addEventListener('input', (e) => {
+        state.gasConsumption = parseFloat(e.target.value) || 0;
+        updateUI();
+      });
+      gasPriceInput.addEventListener('input', (e) => {
+        state.gasPrice = parseFloat(e.target.value) || 0;
+        updateUI();
+      });
+
+      // EV inputs
+      evEfficiencyInput.addEventListener('input', (e) => {
+        state.evEfficiency = parseFloat(e.target.value) || 0;
+        updateUI();
+      });
+      evPriceInput.addEventListener('input', (e) => {
+        state.evElectricityPrice = parseFloat(e.target.value) || 0;
+        updateUI();
+      });
+      chargeLossInput.addEventListener('input', (e) => {
+        state.chargingLossPct = parseFloat(e.target.value) || 0;
+        updateUI();
+      });
+
+      // EV Cost Slider & Number synchronization
+      evCostSlider.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value) || 0;
+        state.evPurchasePrice = val;
+        evCostInput.value = val;
+        updateUI();
+      });
+      evCostInput.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value) || 0;
+        state.evPurchasePrice = val;
+        evCostSlider.value = val;
+        updateUI();
+      });
+
+      // Resale & Charger
+      resaleValueInput.addEventListener('input', (e) => {
+        state.oldCarResale = parseFloat(e.target.value) || 0;
+        updateUI();
+      });
+      chargerCostInput.addEventListener('input', (e) => {
+        state.chargerInstallation = parseFloat(e.target.value) || 0;
+        updateUI();
+      });
+
+      // Ladder step buttons
+      step1kBtn.addEventListener('click', () => {
+        state.ladderStep = 1000;
+        step1kBtn.className = "px-3 py-1 rounded-md bg-white text-slate-800 shadow-xs";
+        step2kBtn.className = "px-3 py-1 rounded-md text-slate-500 hover:text-slate-800";
+        updateUI();
+      });
+      step2kBtn.addEventListener('click', () => {
+        state.ladderStep = 2000;
+        step2kBtn.className = "px-3 py-1 rounded-md bg-white text-slate-800 shadow-xs";
+        step1kBtn.className = "px-3 py-1 rounded-md text-slate-500 hover:text-slate-800";
+        updateUI();
+      });
+
+      // Reset Defaults
+      resetDefaultsBtn.addEventListener('click', () => {
+        state.weeklyKm = 150;
+        state.gasConsumption = 5.6;
+        state.gasPrice = 2.00;
+        state.evEfficiency = 14.0;
+        state.evElectricityPrice = 0.14;
+        state.chargingLossPct = 10;
+        state.evPurchasePrice = 22000;
+        state.oldCarResale = 15000;
+        state.chargerInstallation = 0;
+        state.ladderStep = 1000;
+
+        weeklyKmInput.value = 150;
+        gasConsumptionInput.value = 5.6;
+        gasPriceInput.value = 2.00;
+        evEfficiencyInput.value = 14.0;
+        evPriceInput.value = 0.14;
+        chargeLossInput.value = 10;
+        evCostSlider.value = 22000;
+        evCostInput.value = 22000;
+        resaleValueInput.value = 15000;
+        chargerCostInput.value = 0;
+
+        step1kBtn.className = "px-3 py-1 rounded-md bg-white text-slate-800 shadow-xs";
+        step2kBtn.className = "px-3 py-1 rounded-md text-slate-500 hover:text-slate-800";
+
+        updateUI();
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initChart();
+      attachListeners();
+      updateUI();
+    });
+  </script>
+</body>
+</html>
